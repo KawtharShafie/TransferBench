@@ -28,6 +28,7 @@ THE SOFTWARE.
 #include <random>
 #include <stack>
 #include <thread>
+#include <dlfcn.h>
 
 #include "TransferBench.hpp"
 #include "GetClosestNumaNode.hpp"
@@ -1353,10 +1354,25 @@ void ParseExeType(EnvVars const& ev, std::string const& token,
     printf("[ERROR] CPU index must be between 0 and %d (instead of %d)\n", ev.numCpuDevices-1, exeIndex);
     exit(1);
   }
-  if (IsGpuType(exeType) && (exeIndex < 0 || exeIndex >= ev.numGpuDevices))
+  if (IsGpuType(exeType) && (exeIndex < 0 || exeIndex >= ev.numGpuDevices) && !IsNicType(exeType))
   {
     printf("[ERROR] GPU index must be between 0 and %d (instead of %d)\n", ev.numGpuDevices-1, exeIndex);
     exit(1);
+  }
+  if (IsNicType(exeType))
+  {
+	  // Check for RDMA library support
+	  if (!rdma_available())
+	  {
+		  printf("[ERROR] RDMA is not supported. Check to see if libibverbs has been installed on this system\n");
+		  exit(1);
+	  }
+
+	  if(exeSubIndex == -1)
+	  {
+		  printf("[ERROR] NIC on Receiver End not specified. Must specify receiver NIC in the following format [R#.#].\n");
+		  exit(1);
+	  }
   }
   if (exeType == EXE_GPU_GFX && exeSubIndex != -1)
   {
@@ -3170,4 +3186,28 @@ std::string PtrVectorToStr(std::vector<float*> const& strVector, int const initO
     ss << (strVector[i] + initOffset);
   }
   return ss.str();
+}
+
+//Dynamically check if libibverbs is installed on the system and if RDMA transport is supported
+bool rdma_available()
+{
+	void* rdma_enabled;
+	//Dynamically Open libibverbs.so 
+	void* rdma = dlopen("libibverbs.so", RTLD_NOW);
+
+	if(rdma) {
+		//Check for common function: ibv_get_device_list 
+		rdma_enabled = dlsym(rdma, "ibv_get_device_list");
+
+		if(rdma_enabled) {
+			printf("RDMA Executor Type Supported.\n");
+		} else {
+			printf("[ERROR] RDMA Executor Type NOT Supported.\n");
+		}
+		dlclose(rdma);
+		return 1;
+	} else {
+		printf("[ERROR] RDMA Executor Type NOT Supported.\n");
+	}
+	return 0;
 }

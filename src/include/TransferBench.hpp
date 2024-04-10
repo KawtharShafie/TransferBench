@@ -57,16 +57,18 @@ typedef enum
   EXE_CPU          = 0, // CPU executor              (subExecutor = CPU thread)
   EXE_GPU_GFX      = 1, // GPU kernel-based executor (subExecutor = threadblock/CU)
   EXE_GPU_DMA      = 2, // GPU SDMA-based executor   (subExecutor = streams)
+  EXE_GPU_RDMA     = 3, // GPU RDMA-copy executor    (subExecutor = NIC)
 } ExeType;
 
 bool IsGpuType(MemType m) { return (m == MEM_GPU || m == MEM_GPU_FINE || m == MEM_MANAGED); }
 bool IsCpuType(MemType m) { return (m == MEM_CPU || m == MEM_CPU_FINE || m == MEM_CPU_UNPINNED); };
-bool IsGpuType(ExeType e) { return (e == EXE_GPU_GFX || e == EXE_GPU_DMA); };
+bool IsGpuType(ExeType e) { return (e == EXE_GPU_GFX || e == EXE_GPU_DMA || e == EXE_GPU_RDMA); };
+bool IsNicType(ExeType e) { return (e == EXE_GPU_RDMA); };
 bool IsCpuType(ExeType e) { return (e == EXE_CPU); };
 
 char const MemTypeStr[8] = "CGBFUNM";
-char const ExeTypeStr[4] = "CGD";
-char const ExeTypeName[3][4] = {"CPU", "GPU", "DMA"};
+char const ExeTypeStr[5] = "CGDR";
+char const ExeTypeName[4][5] = {"CPU", "GPU", "DMA", "RDMA"};
 
 MemType inline CharToMemType(char const c)
 {
@@ -198,3 +200,4 @@ std::string GetLinkTypeDesc(uint32_t linkType, uint32_t hopCount);
 int RemappedIndex(int const origIdx, bool const isCpuType);
 void LogTransfers(FILE *fp, int const testNum, std::vector<Transfer> const& transfers);
 std::string PtrVectorToStr(std::vector<float*> const& strVector, int const initOffset);
+bool rdma_available();
